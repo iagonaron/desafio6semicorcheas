@@ -32,6 +32,11 @@
 
   header{display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:nowrap; margin-bottom:8px;}
   h1{font-size:27px; font-weight:800; letter-spacing:-0.4px; margin:0; line-height:1.1; color:#fff;}
+  .controls-wrap{position:relative; display:flex; align-items:flex-start; justify-content:flex-end; flex-shrink:0;}
+  /* número de cuenta atrás, en el hueco bajo el selector de niveles, a la izquierda de los controles */
+  .count-num{position:absolute; right:300px; top:46px; font-size:60px; font-weight:800; color:#fff; line-height:1;
+    text-align:center; text-shadow:0 4px 20px rgba(0,0,0,0.6); visibility:hidden; pointer-events:none;}
+  .count-num.show{visibility:visible;}
   .controls{display:flex; flex-direction:column; align-items:flex-end; gap:9px; flex-shrink:0;}
   .levels{display:inline-flex; background:rgba(0,0,0,0.35); border:1px solid var(--line); border-radius:12px; padding:4px; gap:3px; backdrop-filter:blur(8px);}
   .levels button{
@@ -48,19 +53,19 @@
   }
   .levels button.leyenda:hover{ color:#f0d57a; background:linear-gradient(135deg, rgba(212,175,55,0.30), rgba(184,134,11,0.18)); }
   .levels button.leyenda.active{ background:linear-gradient(135deg,var(--gold1),var(--gold2)); color:#1a1407; box-shadow:none; }
-  .gen{display:flex; align-items:center; gap:10px; min-height:34px;}
-  .gen .keybadge{font-size:14px; font-weight:700; padding:6px 12px; background:var(--accent-soft); color:#9cc4ff; border-radius:9px; border:1px solid rgba(59,130,246,0.35);}
+  .gen{display:flex; align-items:center; gap:10px; min-height:34px; width:280px; justify-content:flex-end;}
+  .gen .keybadge{font-size:14px; font-weight:700; padding:6px 12px; background:var(--accent-soft); color:#9cc4ff; border-radius:9px; border:1px solid rgba(59,130,246,0.35); white-space:nowrap;}
   .gen button{
     border:0; background:var(--accent); color:#fff; padding:9px 16px; border-radius:10px;
-    cursor:pointer; font-size:13px; font-weight:700;
+    cursor:pointer; font-size:13px; font-weight:700; flex:1;
   }
   .gen button:active{transform:translateY(1px);}
-  .transport{display:flex; align-items:center; gap:8px;}
-  .transport .tbtn{width:32px;height:32px;border:1px solid var(--line);background:rgba(255,255,255,0.06);border-radius:9px;cursor:pointer;font-size:16px;font-weight:700;color:var(--ink);}
+  .transport{display:flex; align-items:center; gap:8px; width:280px; justify-content:flex-end;}
+  .transport .tbtn{width:32px;height:32px;flex:0 0 32px;border:1px solid var(--line);background:rgba(255,255,255,0.06);border-radius:9px;cursor:pointer;font-size:16px;font-weight:700;color:var(--ink);}
   .transport .tbtn:hover{background:rgba(255,255,255,0.12);}
-  .transport .tempo{font-size:13px;color:var(--muted);min-width:64px;text-align:center;}
+  .transport .tempo{font-size:13px;color:var(--muted);min-width:60px;text-align:center;}
   .transport .tempo b{color:#fff;font-size:15px;}
-  .transport .play{border:0;background:var(--accent);color:#fff;padding:9px 17px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;}
+  .transport .play{border:0;background:var(--accent);color:#fff;padding:9px 17px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;flex:1;white-space:nowrap;}
   .transport .play.playing{background:#d0453a;}
   .hint{font-size:12px; color:var(--muted); margin:2px 0 10px;}
   /* partitura sobre panel blanco (notas negras), integrada en el entorno oscuro */
@@ -69,7 +74,6 @@
   .bonuswrap{margin-top:2px;}
   .measure-hi{fill:rgba(59,130,246,0.16);}
   /* cuenta atrás */
-  #countin{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(10,14,22,0.18);font-size:140px;font-weight:800;color:#fff;text-shadow:0 4px 24px rgba(0,0,0,0.8);z-index:50;pointer-events:none;}
   /* pantalla Bonus Track */
   #bonusScreen{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:22px;background:rgba(10,14,22,0.92);backdrop-filter:blur(8px);z-index:55;}
   #bonusScreen .bs-title{font-size:44px;font-weight:800;letter-spacing:2px;background:linear-gradient(135deg,var(--gold1),var(--gold2));-webkit-background-clip:text;background-clip:text;color:transparent;}
@@ -83,24 +87,26 @@
 <div id="bgshade"></div>
 <header>
   <h1>Desafío de las 6 semicorcheas</h1>
-  <div class="controls">
-    <div class="levels" id="levels">
-      <button data-level="principiante" class="active">Principiante</button>
-      <button data-level="intermedio">Intermedio</button>
-      <button data-level="avanzado">Avanzado</button>
-      <button data-level="leyenda" class="leyenda">Leyenda</button>
-    </div>
-    <div class="gen" id="genzone"></div>
-    <div class="transport" id="transport">
-      <button id="tempoDown" class="tbtn">−</button>
-      <span class="tempo"><b id="bpm">40</b> bpm</span>
-      <button id="tempoUp" class="tbtn">+</button>
-      <button id="playBtn" class="play">▶ Tocar</button>
+  <div class="controls-wrap">
+    <div id="countNum" class="count-num"></div>
+    <div class="controls">
+      <div class="levels" id="levels">
+        <button data-level="principiante" class="active">Principiante</button>
+        <button data-level="intermedio">Intermedio</button>
+        <button data-level="avanzado">Avanzado</button>
+        <button data-level="leyenda" class="leyenda">Leyenda</button>
+      </div>
+      <div class="gen" id="genzone"></div>
+      <div class="transport" id="transport">
+        <button id="tempoDown" class="tbtn">−</button>
+        <span class="tempo"><b id="bpm">40</b> bpm</span>
+        <button id="tempoUp" class="tbtn">+</button>
+        <button id="playBtn" class="play">▶ Tocar</button>
+      </div>
     </div>
   </div>
 </header>
 <div class="hint" id="hint"></div>
-<div id="countin"></div>
 <div id="bonusScreen">
   <div class="bs-title">BONUS TRACK</div>
   <div class="bs-count" id="bsCount"></div>
@@ -431,20 +437,6 @@ function renderMeasureInto(context, x, y, width, measureEvents, key, opts){
   // --- 2) Construir notas con la dirección de plica del grupo ---
   const notes=measureEvents.map((e,i)=>makeNote(e,key, stemOf[i]||0, clefType));
 
-  // Si un grupo contiene un silencio puente, alargamos las plicas de sus notas
-  // para empujar el corchete lejos del silencio y evitar el solape.
-  groups.forEach(g=>{
-    const hasRest = g.idxs.some(i=>measureEvents[i].rest);
-    if(!hasRest) return;
-    g.idxs.forEach(i=>{
-      if(measureEvents[i].rest) return;
-      const n=notes[i];
-      if(n && typeof n.setStemLength==='function'){
-        n.setStemLength(52); // por defecto ~35; lo alargamos
-      }
-    });
-  });
-
   // --- 3) Crear los beams a partir de los grupos ---
   const beams=groups.map(g=>{
     const slice=g.idxs.map(i=>notes[i]);
@@ -771,7 +763,7 @@ function stopMetronome(){
   playing=false;
   if(metroTimer){clearTimeout(metroTimer);metroTimer=null;}
   clearHighlight();
-  const overlay=document.getElementById('countin'); if(overlay)overlay.style.display='none';
+  const cn=document.getElementById('countNum'); if(cn){cn.classList.remove('show');cn.textContent='';}
   const bs=document.getElementById('bonusScreen'); if(bs){bs.style.display='none';bs.classList.remove('playing');}
   if(bonusHi&&bonusHi.parentNode){bonusHi.parentNode.removeChild(bonusHi);bonusHi=null;}
   const pb=document.getElementById('playBtn');
@@ -784,17 +776,17 @@ function startMetronome(){
   pb.textContent='■ Parar'; pb.classList.add('playing');
   const pulseMs=60000/BPM;        // un pulso = negra con puntillo
   const subMs=pulseMs/3;          // cada corchea = 1/3 del pulso
-  const overlay=document.getElementById('countin');
+  const cn=document.getElementById('countNum');
   let countdown=2;
   const tickCountIn=()=>{
     if(!playing) return;
-    overlay.style.display='flex'; overlay.textContent=String(countdown);
+    cn.classList.add('show'); cn.textContent=String(countdown);
     clickSound('count');
     setTimeout(()=>{ if(playing)clickSound('sub'); },subMs);
     setTimeout(()=>{ if(playing)clickSound('sub'); },2*subMs);
     countdown--;
     if(countdown>0){ metroTimer=setTimeout(tickCountIn,pulseMs); }
-    else { metroTimer=setTimeout(()=>{ overlay.style.display='none'; runMeasure(0,0); }, pulseMs); }
+    else { metroTimer=setTimeout(()=>{ cn.classList.remove('show'); cn.textContent=''; runMeasure(0,0); }, pulseMs); }
   };
   const runMeasure=(mi,pulse)=>{
     if(!playing) return;
