@@ -38,6 +38,8 @@
   .header-bar{position:relative; margin-bottom:4px;}
   header{display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:nowrap;}
   .brand{display:flex; align-items:baseline; gap:13px; flex-wrap:wrap;}
+  .brand-link{text-decoration:none; color:inherit; cursor:pointer; transition:opacity .15s;}
+  .brand-link:hover{opacity:.82;}
   .brand h1{font-size:30px; font-weight:800; margin:0; letter-spacing:-0.6px; line-height:1.1;}
   .brand .lm{color:var(--ink); font-weight:900;}
   .brand .eav{color:var(--muted2); font-weight:300;}
@@ -130,7 +132,7 @@
 <div class="header-bar">
 <header>
   <div class="brand">
-    <h1><span class="lm">LM</span><span class="eav">EAV</span> <span class="home2">at home</span></h1>
+    <a class="brand-link" href="https://iagonaron.github.io/LMEAVathome/" title="Ir a LMEAV at home"><h1><span class="lm">LM</span><span class="eav">EAV</span> <span class="home2">at home</span></h1></a>
     <div class="brand-sub">Recursos interactivos LM y EAV desde tu casa</div>
   </div>
   <div class="controls-wrap">
@@ -220,7 +222,7 @@ const KEYS = [
   {name:'Sol m',tonic:55, mode:'minor', vfKey:'Gm'},
 ];
 const RANGE_LO=57, RANGE_HI=76; // A3..E5
-function scaleSemis(mode){return mode==='major'?[0,2,4,5,7,9,11]:[0,2,3,5,7,8,11];}
+function scaleSemis(mode){return mode==='major'?[0,2,4,5,7,9,11]:[0,2,3,5,7,8,10];}
 function diatonic(key){const sc=scaleSemis(key.mode);const out=[];for(let m=RANGE_LO;m<=RANGE_HI;m++){if(sc.includes(((m-key.tonic)%12+12)%12))out.push(m);}return out;}
 function degreeOf(m,key){const sc=scaleSemis(key.mode);const i=sc.indexOf(((m-key.tonic)%12+12)%12);return i<0?null:i+1;}
 function isStable(m,key){const d=degreeOf(m,key);return d===1||d===3||d===5;}
@@ -236,7 +238,7 @@ function genMeasure(cellArr,key,rng,opts){
   opts=opts||{};
   const beat2 = opts.beat2 || [{fig:'Ndot',rest:false}];
   const flat=cellArr.map(t=>({...t})).concat(beat2.map(t=>({...t})));
-  const ev=[]; let prev=null,gap=false,pfig=null;
+  const ev=[]; let prev=null,gap=false,pfig=null,before2=null;
   let leapBudget=1;
   let pendingComp=0;
   let soundingCount=0;
@@ -274,6 +276,16 @@ function genMeasure(cellArr,key,rng,opts){
       }
       if(!cands.length)cands=diatonic(key);
 
+      // ventana de registro estrecha (§2): si hay franja definida, preferir candidatos dentro.
+      // Empuje "anti-grave"/"anti-agudo": si nos acercamos a un borde, conducir al centro por grado conjunto.
+      if(opts.winLo!=null && opts.winHi!=null){
+        const inWin=cands.filter(m=>m>=opts.winLo && m<=opts.winHi);
+        if(inWin.length) cands=inWin;
+        const center=(opts.winLo+opts.winHi)/2;
+        if(prev<=opts.winLo+1){ const up=cands.filter(m=>m>prev); if(up.length)cands=up; }
+        else if(prev>=opts.winHi-1){ const dn=cands.filter(m=>m<prev); if(dn.length)cands=dn; }
+      }
+
       // preferencia tonal del apoyo
       if(apoyo){
         const stable=cands.filter(m=>isStable(m,key));
@@ -282,6 +294,13 @@ function genMeasure(cellArr,key,rng,opts){
         if(stable.length&&r<0.82)cands=stable;
         else if(soft.length&&r<0.97)cands=soft;
         else{const nl=cands.filter(m=>!isLeading(m,key)&&degreeOf(m,key)!==4);if(nl.length)cands=nl;}
+      }
+      // preferencia de contorno (§7): evitar repetir nota y evitar balanceo A-B-A-B.
+      // Es preferencia suave: solo se aplica si quedan alternativas (cede ante reglas duras).
+      if(cands.length>1){
+        let pref=cands.filter(m=>m!==prev);                 // no repetir la nota anterior
+        if(before2!=null) pref=pref.filter(m=>m!==before2); // no volver a A en A-B-A (balanceo)
+        if(pref.length) cands=pref;
       }
       midi=pick(cands,rng);
 
@@ -295,22 +314,29 @@ function genMeasure(cellArr,key,rng,opts){
       }
     }
     ev.push({midi,fig:t.fig,rest:false,tuplet:t.tuplet});
-    prev=midi;gap=false;pfig=t.fig;
+    before2=prev;prev=midi;gap=false;pfig=t.fig;
   }
   return ev;
 }
 function genSystem(cells,key,rng,forceTonicEnds,beat2List){
-  const tn=tonics(key); const startT=pick(tn,rng);
+  const tn=tonics(key);
+  // preferir tónica de salida en la zona central (Do4=60 .. Do5=72) para el centro de gravedad (§2)
+  const tnCentral=tn.filter(t=>t>=60&&t<=72);
+  const startT=pick(tnCentral.length?tnCentral:tn,rng);
+  // ventana de registro estrecha anclada en la tónica de salida (§2): de -2 a +11 semitonos,
+  // recortada al ámbito absoluto A3-E5. La melodía vive dentro de esta franja (~10ª).
+  const winLo=Math.max(RANGE_LO, startT-2);
+  const winHi=Math.min(RANGE_HI, startT+11);
   const ms=[]; let prev=null;
   for(let i=0;i<cells.length;i++){
     const isFirst=i===0,isLast=i===cells.length-1;
     const b2=beat2List?beat2List[i]:null;
-    const opts={prevMidi:prev}; if(isFirst&&forceTonicEnds)opts.startMidi=startT; if(b2)opts.beat2=b2;
+    const opts={prevMidi:prev,winLo,winHi}; if(isFirst&&forceTonicEnds)opts.startMidi=startT; if(b2)opts.beat2=b2;
     let m=genMeasure(cells[i],key,rng,opts);
     if(isLast&&forceTonicEnds){
       let bestM=m, bestCost=1e9;
       for(let attempt=0; attempt<24; attempt++){
-        const cand = attempt===0 ? m : genMeasure(cells[i],key,rng,Object.assign({prevMidi:prev},b2?{beat2:b2}:{}));
+        const cand = attempt===0 ? m : genMeasure(cells[i],key,rng,Object.assign({prevMidi:prev,winLo,winHi},b2?{beat2:b2}:{}));
         let ai=cand.length-1; while(ai>=0&&cand[ai].midi===null)ai--;
         const pv=ai>0 ? (function(){let pj=ai-1;while(pj>=0&&cand[pj].midi===null)pj--;return cand[pj]?cand[pj].midi:cand[ai].midi;})() : cand[ai].midi;
         const dsl=diatonic(key);
@@ -324,7 +350,36 @@ function genSystem(cells,key,rng,forceTonicEnds,beat2List){
     ms.push(m);
     let k=m.length-1;while(k>=0&&m[k].midi===null)k--;prev=m[k].midi;
   }
+  if(key.mode==='minor') applyMelodicMinor(ms,key);
   return ms;
+}
+
+/* === Menor melódico (post-proceso, §5 del criterio) ===
+   Sobre la línea ya fijada en menor natural: eleva el VII grado a sensible (+1 semitono)
+   cuando asciende por 2ª a la tónica; y eleva también el VI cuando hay ascenso VI->VII->I,
+   formando el menor melódico ascendente y evitando la 2ª aumentada VI-VII#.
+   En descenso o sin resolución ascendente a la tónica, se quedan los grados naturales. */
+function applyMelodicMinor(ms,key){
+  // lista plana de referencias a notas con sonido, en orden
+  const seq=[];
+  for(const m of ms) for(const e of m) if(!e.rest && e.midi!=null) seq.push(e);
+  const pc=(m)=>((m%12)+12)%12;
+  const tpc=pc(key.tonic);
+  const VIInat=pc(key.tonic+10), VInat=pc(key.tonic+8); // grados naturales del menor natural
+  for(let i=0;i<seq.length-1;i++){
+    const cur=seq[i], nxt=seq[i+1];
+    // VII natural que sube por 2ª (1 ó 2 semitonos) a la tónica -> sensible
+    if(pc(cur.midi)===VIInat && pc(nxt.midi)===tpc && nxt.midi>cur.midi && (nxt.midi-cur.midi)<=2){
+      cur.midi+=1; // VII -> VII# (sensible), ahora a 1 semitono de la tónica
+      // si la anterior es VI natural subiendo hacia este VII -> elevar VI (menor melódico)
+      if(i>0){
+        const prevN=seq[i-1];
+        if(pc(prevN.midi)===VInat && cur.midi>prevN.midi && (cur.midi-prevN.midi)>=2){
+          prevN.midi+=1; // VI -> VI# (evita la 2ª aumentada con el VII#)
+        }
+      }
+    }
+  }
 }
 
 /* === PRINCIPIANTE: escala ascendente por grados conjuntos, transponible === */
